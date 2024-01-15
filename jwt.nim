@@ -44,6 +44,25 @@ proc sign(payload, secret: string): string =
   return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
 
 
+proc sign(payload: JsonNode, secret: string): string =
+  ## currently implemented hash types SHA256, SHA512
+  let header = %* {
+    "alg": "HS256",
+    "typ": "JWT"
+  }
+
+  let encoded_header = base64Encode($header)
+  let encoded_payload = base64Encode($payload)
+
+  var signature = newHmacCtx(
+    key=secret,
+    msg=fmt"{encoded_header}.{encoded_payload}",
+    digestMod=SHA256
+  )
+
+  return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
+
+
 proc verify(token, secret: string): bool =
   let (header, payload, signature) = token.splitToken()
   let (_, _, expectedSignature) = sign(base64Decode(payload), secret).splitToken()
@@ -62,7 +81,7 @@ when isMainModule:
     "iat": 1516239022
   }
 
-  let token = sign($payload, secret)
+  let token = sign(payload, secret)
   echo fmt"JWT: {token}"
 
   let isValid = verify(token, secret)
