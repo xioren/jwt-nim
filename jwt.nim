@@ -41,11 +41,7 @@ proc sign(payload, secret: string): string =
     digestMod=SHA256
   )
 
-  case signature.digestMod
-  of SHA256:
-    return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
-  of SHA512:
-    return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
+  return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
 
 
 proc verify(token, secret: string): bool =
