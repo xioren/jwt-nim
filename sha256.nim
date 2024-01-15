@@ -2,11 +2,13 @@ import std/[endians, strutils]
 
 include sha2
 
+# NOTE: the original version with a 256-bit digest
 
 const wordSize = 4
 const blockSize = 64
 const scheduleSize = 64
 
+# NOTE: schedule array
 var w: array[scheduleSize, uint32]
 
 type
@@ -145,8 +147,8 @@ proc digest*(ctx: Sha256Context): array[32, uint8] =
   
   tempCtx.finalize()
   
-  for idx, b in tempCtx.state:
-    bigEndian32(addr result[idx * wordSize], unsafeAddr b)
+  for idx in 0 ..< 8:
+    bigEndian32(addr result[idx * wordSize], addr tempCtx.state[idx])
   return result
 
 
@@ -160,8 +162,8 @@ proc hexDigest*(ctx: Sha256Context): string =
   tempCtx.finalize()
   
   result = newStringOfCap(64)
-  for b in tempCtx.state:
-    result.add(b.toHex(8).toLowerAscii())
+  for idx in 0 ..< 8:
+    result.add(tempCtx.state[idx].toHex(8).toLowerAscii())
   return result
 
 
