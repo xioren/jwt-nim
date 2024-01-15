@@ -1,4 +1,4 @@
-import std/[base64, json, strutils, strformat]
+import std/[base64, json, strutils, strformat, tables]
 
 import hmac, secrets
 
@@ -32,16 +32,16 @@ proc sign(payload, secret: string): string =
     "typ": "JWT"
   }
 
-  let encoded_header = base64Encode($header)
-  let encoded_payload = base64Encode(payload)
+  let encodedHeader = base64Encode($header)
+  let encodedPayload = base64Encode(payload)
 
   var signature = newHmacCtx(
     key=secret,
-    msg=fmt"{encoded_header}.{encoded_payload}",
+    msg=fmt"{encodedHeader}.{encodedPayload}",
     digestMod=SHA256
   )
 
-  return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
+  return fmt"{encodedHeader}.{encodedPayload}.{base64Encode(signature.digest())}"
 
 
 proc sign(payload: JsonNode, secret: string): string =
@@ -51,16 +51,16 @@ proc sign(payload: JsonNode, secret: string): string =
     "typ": "JWT"
   }
 
-  let encoded_header = base64Encode($header)
-  let encoded_payload = base64Encode($payload)
+  let encodedHeader = base64Encode($header)
+  let encodedPayload = base64Encode($payload)
 
   var signature = newHmacCtx(
     key=secret,
-    msg=fmt"{encoded_header}.{encoded_payload}",
+    msg=fmt"{encodedHeader}.{encodedPayload}",
     digestMod=SHA256
   )
 
-  return fmt"{encoded_header}.{encoded_payload}.{base64Encode(signature.digest())}"
+  return fmt"{encodedHeader}.{encodedPayload}.{base64Encode(signature.digest())}"
 
 
 proc verify(token, secret: string): bool =
