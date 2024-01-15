@@ -147,7 +147,7 @@ proc finalize*(ctx: var Sha512Context) =
 
 
 proc digest*(ctx: Sha512Context): array[64, uint8] =
-  ## convert state array[8, uint64] to array[32, uint8]
+  ## convert state array[8, uint64] to array[64, uint8]
   ## does not alter hash state
   var tempCtx: Sha512Context
   new tempCtx
