@@ -134,11 +134,11 @@ proc copyShaCtx*(toThisCtx: var Sha512Context, fromThisCtx: Sha512Context) =
 proc update*[T](ctx: var Sha512Context, msg: openarray[T]) =
   ctx.totalLen.inc(msg.len)
   for i in 0 ..< msg.len:
-    ctx.buffer[ctx.bufferLen] = uint8(msg[i])
-    inc ctx.bufferLen
     if ctx.bufferLen == blockSize:
       processBlock(ctx.state, ctx.buffer)
       ctx.bufferLen = 0
+    ctx.buffer[ctx.bufferLen] = uint8(msg[i])
+    inc ctx.bufferLen
 
 
 proc finalize*(ctx: var Sha512Context) =
