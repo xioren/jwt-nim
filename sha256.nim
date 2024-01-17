@@ -58,13 +58,13 @@ proc padBuffer(ctx: var Sha256Context) =
   while ctx.bufferLen < blockSize - 8:  # -8 for the 64-bit length at the end
     ctx.buffer[ctx.bufferLen] = 0'u8
     inc ctx.bufferLen
-
+  
   # NOTE: add the original message length as a 64-bit big-endian integer
   let msgBitLength = uint64(ctx.totalLen * 8)
   for i in countdown(7, 0):
     ctx.buffer[ctx.bufferLen] = uint8((msgBitLength shr (i * 8)) and 0xff'u64)
     inc ctx.bufferLen
-
+    
 
 proc compress(ctx: var Sha256Context) =
   ## process single 512 bit block
@@ -133,6 +133,10 @@ proc update*[T](ctx: var Sha256Context, msg: openarray[T]) =
 
 
 proc finalize*(ctx: var Sha256Context) =
+  # NOTE: compress data in the buffer if it contains more than blockSize - 8 bytes.
+  # this ensures there is room for the length field
+  if ctx.bufferLen >= blockSize - 8:
+    ctx.compress()
   # NOTE: pad the remaining data in the buffer
   ctx.padBuffer()
   # NOTE: process the final block
