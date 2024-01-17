@@ -12,10 +12,10 @@ const scheduleSize = 128
 var w: array[scheduleSize, uint64]
 
 type
-  Sha512Context* = ref object
+  Sha512Context* = object
     state*: array[8, uint64]
     buffer: array[blockSize, uint8]
-    bufferLen: int # NOTE: tracks the number of bytes currently in the buffer
+    bufferLen: int  # NOTE: tracks the number of bytes currently in the buffer
     totalLen: int64 # NOTE: total length of the message
 
 const initState: array[8, uint64] = [
@@ -52,49 +52,49 @@ proc schedule(i: int): uint64 {.inline.} =
   return sigma1(w[i - 2]) + w[i - 7] + sigma0(w[i - 15]) + w[i - 16]
 
 
-proc padBuffer(buffer: var array[blockSize, uint8], bufferLen: var int, totalLen: int64) =
+proc padBuffer(ctx: var Sha512Context) =
   ## pad data in the buffer
   # NOTE: append the bit '1' to the buffer
-  buffer[bufferLen] = 0x80'u8
-  inc bufferLen
+  ctx.buffer[ctx.bufferLen] = 0x80'u8
+  inc ctx.bufferLen
 
   # NOTE: pad with zeros until the last 64 bits
-  while (bufferLen + 16) < blockSize:  # +16 for the 64-bit length at the end
-    buffer[bufferLen] = 0'u8
-    inc bufferLen
+  while ctx.bufferLen < blockSize - 16:  # -16 for the 64-bit length at the end
+    ctx.buffer[ctx.bufferLen] = 0'u8
+    inc ctx.bufferLen
 
   # NOTE: add the original message length as a 128-bit big-endian integer
   # NOTE: upper 64 bits of the 128-bit length field are set to zero
   for i in countdown(15, 8):
-    buffer[bufferLen] = 0'u8
-    inc bufferLen
+    ctx.buffer[ctx.bufferLen] = 0'u8
+    inc ctx.bufferLen
   
   # NOTE: add the lower 64 bits of the message length to the buffer
-  let msgBitLength = uint64(totalLen * 8)
+  let msgBitLength = uint64(ctx.totalLen * 8)
   for i in countdown(7, 0):
-    buffer[bufferLen] = uint8((msgBitLength shr (i * 8)) and 0xff'u64)
-    inc bufferLen
+    ctx.buffer[ctx.bufferLen] = uint8((msgBitLength shr (i * 8)) and 0xff'u64)
+    inc ctx.bufferLen
 
 
-proc processBlock(state: var array[8, uint64], messageBlock: var array[blockSize, uint8]) =
+proc compress(ctx: var Sha512Context) =
   ## process single 1024 bit block
   # NOTE: fill in first 16 words in big endian64 format
   for i in 0 ..< 16:
-    bigEndian64(addr w[i], addr messageBlock[i * wordSize])
+    bigEndian64(addr w[i], addr ctx.buffer[i * wordSize])
 
   # NOTE: fill in remaining 112
   for i in 16 ..< scheduleSize:
     w[i] = schedule(i)
 
   # NOTE: initialize working variables to current hash value
-  var a = state[0]
-  var b = state[1]
-  var c = state[2]
-  var d = state[3]
-  var e = state[4]
-  var f = state[5]
-  var g = state[6]
-  var h = state[7]
+  var a = ctx.state[0]
+  var b = ctx.state[1]
+  var c = ctx.state[2]
+  var d = ctx.state[3]
+  var e = ctx.state[4]
+  var f = ctx.state[5]
+  var g = ctx.state[6]
+  var h = ctx.state[7]
 
   # NOTE: compression
   var temp1: uint64
@@ -112,14 +112,16 @@ proc processBlock(state: var array[8, uint64], messageBlock: var array[blockSize
     a = temp1 + temp2
 
   # NOTE: add the compressed chunk to the current hash value
-  state[0] += a
-  state[1] += b
-  state[2] += c
-  state[3] += d
-  state[4] += e
-  state[5] += f
-  state[6] += g
-  state[7] += h
+  ctx.state[0] += a
+  ctx.state[1] += b
+  ctx.state[2] += c
+  ctx.state[3] += d
+  ctx.state[4] += e
+  ctx.state[5] += f
+  ctx.state[6] += g
+  ctx.state[7] += h
+
+  ctx.bufferLen = 0
 
 
 proc copyShaCtx*(toThisCtx: var Sha512Context, fromThisCtx: Sha512Context) =
@@ -135,24 +137,22 @@ proc update*[T](ctx: var Sha512Context, msg: openarray[T]) =
   ctx.totalLen.inc(msg.len)
   for i in 0 ..< msg.len:
     if ctx.bufferLen == blockSize:
-      processBlock(ctx.state, ctx.buffer)
-      ctx.bufferLen = 0
+      ctx.compress()
     ctx.buffer[ctx.bufferLen] = uint8(msg[i])
     inc ctx.bufferLen
 
 
 proc finalize*(ctx: var Sha512Context) =
   # NOTE: pad the remaining data in the buffer
-  padBuffer(ctx.buffer, ctx.bufferLen, ctx.totalLen)
+  ctx.padBuffer()
   # NOTE: process the final block
-  processBlock(ctx.state, ctx.buffer)
+  ctx.compress()
 
 
 proc digest*(ctx: Sha512Context): array[64, uint8] =
   ## convert state array[8, uint64] to array[64, uint8]
   ## does not alter hash state
   var tempCtx: Sha512Context
-  new tempCtx
   copyShaCtx(tempCtx, ctx)
   
   tempCtx.finalize()
@@ -166,7 +166,6 @@ proc hexDigest*(ctx: Sha512Context): string =
   ## convert state array[8, uint64] to hex string of length 128
   ## does not alter hash state
   var tempCtx: Sha512Context
-  new tempCtx
   copyShaCtx(tempCtx, ctx)
   
   tempCtx.finalize()
@@ -178,7 +177,6 @@ proc hexDigest*(ctx: Sha512Context): string =
 
 proc newSha512Ctx*(msg: openarray[uint8] = @[]): Sha512Context =
   # NOTE: initialize state
-  new result
   result.state = initState
   if msg.len > 0:
     result.update(msg)
