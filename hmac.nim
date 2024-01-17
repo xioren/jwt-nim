@@ -123,7 +123,7 @@ proc initHmac512(ctx: var HmacContext, key: openarray[uint8]) =
 proc newHmacCtx*(key: openarray[uint8], msg: openarray[uint8] = @[], digestMod: DigestMod): HmacContext =
   result.digestMod = digestMod
 
-  case result.digestMod
+  case digestMod
   of SHA256:
     result.initHmac256(key)
     result.sha256Ctx = newSha256Ctx(result.iKeyPad)
