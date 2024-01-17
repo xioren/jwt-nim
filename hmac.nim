@@ -1,6 +1,6 @@
 import sequtils
 
-import sha256, sha512
+import sha_2/[sha256, sha512]
 
 
 type
@@ -17,10 +17,8 @@ type
 proc copyHmacCtx*(toThisCtx: var HmacContext, fromThisCtx: HmacContext) {.inline.} =
   toThisCtx.digestMod = fromThisCtx.digestMod
 
-  if not fromThisCtx.sha256Ctx.isNil:
-    copyShaCtx(toThisCtx.sha256Ctx, fromThisCtx.sha256Ctx)
-  if not fromThisCtx.sha512Ctx.isNil:
-    copyShaCtx(toThisCtx.sha512Ctx, fromThisCtx.sha512Ctx)
+  copyShaCtx(toThisCtx.sha256Ctx, fromThisCtx.sha256Ctx)
+  copyShaCtx(toThisCtx.sha512Ctx, fromThisCtx.sha512Ctx)
   
   toThisCtx.oKeyPad = newSeq[uint8](fromThisCtx.oKeyPad.len)
   toThisCtx.iKeyPad = newSeq[uint8](fromThisCtx.iKeyPad.len)
