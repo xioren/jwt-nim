@@ -76,61 +76,59 @@ proc hexDigest*(ctx: HmacContext): string =
     return outerCtx.hexDigest()
 
 
-proc initHmac256(ctx: var HmacContext, key: openarray[uint8]) =
-  const blockSize = 64
-  
-  # NOTE: normalize key
-  var keyBytes: array[blockSize, uint8]
-  # NOTE: hash key if it is larger than block size, otherwise copy it directly into keyBytes
-  if key.len > blockSize:
-    var hash = newSha256Ctx(key)
-    for i, b in hash.digest():
-      keyBytes[i] = b
-  else:
-    for i, b in key:
-      keyBytes[i] = b
+proc initHmac(ctx: var HmacContext, key: openarray[uint8]) =
+  case ctx.digestMod
+  of SHA256:
+    const blockSize = 64
+    
+    # NOTE: normalize key
+    var keyBytes: array[blockSize, uint8]
+    # NOTE: hash key if it is larger than block size, otherwise copy it directly into keyBytes
+    if key.len > blockSize:
+      var hash = newSha256Ctx(key)
+      for i, b in hash.digest():
+        keyBytes[i] = b
+    else:
+      for i, b in key:
+        keyBytes[i] = b
 
-  # NOTE: create inner and outer padded keys
-  ctx.iKeyPad = newSeq[uint8](blockSize)
-  ctx.oKeyPad = newSeq[uint8](blockSize)
-  for i in 0 ..< blockSize:
-    ctx.iKeyPad[i] = keyBytes[i] xor 0x36
-    ctx.oKeyPad[i] = keyBytes[i] xor 0x5c
+    # NOTE: create inner and outer padded keys
+    ctx.iKeyPad = newSeq[uint8](blockSize)
+    ctx.oKeyPad = newSeq[uint8](blockSize)
+    for i, b in keyBytes:
+      ctx.iKeyPad[i] = b xor 0x36
+      ctx.oKeyPad[i] = b xor 0x5c
+    
+    # NOTE: init sha context
+    ctx.sha256Ctx = newSha256Ctx(ctx.iKeyPad)
+  of SHA512:
+    const blockSize = 128
+   
+    # NOTE: normalize key
+    var keyBytes: array[blockSize, uint8]
+    # NOTE: hash key if it is larger than block size, otherwise copy it directly into keyBytes
+    if key.len > blockSize:
+      var hash = newSha512Ctx(key)
+      for i, b in hash.digest():
+        keyBytes[i] = b
+    else:
+      for i, b in key:
+        keyBytes[i] = b
 
-
-proc initHmac512(ctx: var HmacContext, key: openarray[uint8]) =
-  const blockSize = 128
-  # NOTE: normalize key
-  var keyBytes: array[blockSize, uint8]
-
-  # NOTE: hash key if it is larger than block size, otherwise copy it directly into keyBytes
-  if key.len > blockSize:
-    var hash = newSha512Ctx(key)
-    for i, b in hash.digest():
-      keyBytes[i] = b
-  else:
-    for i, b in key:
-      keyBytes[i] = b
-
-  # NOTE: create inner and outer padded keys
-  ctx.iKeyPad = newSeq[uint8](blockSize)
-  ctx.oKeyPad = newSeq[uint8](blockSize)
-  for i, b in keyBytes:
-    ctx.iKeyPad[i] = b xor 0x36
-    ctx.oKeyPad[i] = b xor 0x5c
+    # NOTE: create inner and outer padded keys
+    ctx.iKeyPad = newSeq[uint8](blockSize)
+    ctx.oKeyPad = newSeq[uint8](blockSize)
+    for i, b in keyBytes:
+      ctx.iKeyPad[i] = b xor 0x36
+      ctx.oKeyPad[i] = b xor 0x5c
+    
+    # NOTE: init sha context
+    ctx.sha512Ctx = newSha512Ctx(ctx.iKeyPad)
 
 
 proc newHmacCtx*(key: openarray[uint8], msg: openarray[uint8] = @[], digestMod: DigestMod): HmacContext =
   result.digestMod = digestMod
-
-  case digestMod
-  of SHA256:
-    result.initHmac256(key)
-    result.sha256Ctx = newSha256Ctx(result.iKeyPad)
-  of SHA512:
-    result.initHmac512(key)
-    result.sha512Ctx = newSha512Ctx(result.iKeyPad)
-  
+  result.initHmac(key) 
   if msg.len > 0:
     result.update(msg)
 
@@ -156,4 +154,3 @@ when isMainModule:
 
   assert hmac256.hexDigest() == "31458f4fea72ca51cab0151894589ac9d6ec6d569b53099405c9ad307f7825e0"
   assert hmac512.hexDigest() == "de7f03db3638d7f8f45128b5a8633f71cc91073bf3b6cf4d7c9307cb767f8dfb0aa7def66788c17060938a92896923893a20ab0d18a41a2dd7cc0a7686932026"
-  
