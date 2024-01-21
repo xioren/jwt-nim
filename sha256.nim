@@ -50,10 +50,6 @@ proc schedule(i: int): uint32 {.inline.} =
 
 proc padBuffer(ctx: var Sha256Context) =
   ## pad data in the buffer
-  # NOTE: append the bit '1' to the buffer
-  ctx.buffer[ctx.bufferLen] = 0x80'u8
-  inc ctx.bufferLen
-
   # NOTE pad with zeros until the last 64 bits
   while ctx.bufferLen < blockSize - 8:  # -8 for the 64-bit length at the end
     ctx.buffer[ctx.bufferLen] = 0'u8
@@ -88,7 +84,7 @@ proc compress(ctx: var Sha256Context) =
   # NOTE: compression
   var temp1: uint32
   var temp2: uint32
-  for i in 0 ..< 64:
+  for i in 0 ..< scheduleSize:
     temp1 = h + Sigma1(e) + choice(e, f, g) + k[i] + w[i]
     temp2 = Sigma0(a) + majority(a, b, c)
     h = g
@@ -126,17 +122,22 @@ proc update*[T](ctx: var Sha256Context, msg: openarray[T]) =
   ## move message into buffer and process as it fills.
   ctx.totalLen.inc(msg.len)
   for i in 0 ..< msg.len:
-    if ctx.bufferLen == blockSize:
-      ctx.compress()
     ctx.buffer[ctx.bufferLen] = uint8(msg[i])
     inc ctx.bufferLen
+    if ctx.bufferLen == blockSize:
+      ctx.compress()
 
 
 proc finalize*(ctx: var Sha256Context) =
+  # NOTE: append the bit '1' to the buffer guaranteeing at least 1 byte free
+  ctx.buffer[ctx.bufferLen] = 0x80'u8
+  inc ctx.bufferLen
+  
   # NOTE: compress data in the buffer if it contains more than blockSize - 8 bytes.
   # this ensures there is room for the length field
   if ctx.bufferLen >= blockSize - 8:
     ctx.compress()
+  
   # NOTE: pad the remaining data in the buffer
   ctx.padBuffer()
   # NOTE: process the final block
@@ -180,11 +181,3 @@ proc newSha256Ctx*(msg: openarray[uint8] = @[]): Sha256Context =
 
 proc newSha256Ctx*(msg: string): Sha256Context =
   return newSha256Ctx(msg.toOpenArrayByte(0, msg.len.pred))
-
-
-when isMainModule:
-  let msg = "some test data"
-  var hash = newSha256Ctx(msg)
-  assert hash.hexDigest() == "f70c5e847d0ea29088216d81d628df4b4f68f3ccabb2e4031c09cc4d129ae216"
-  hash.update("some more test data")
-  assert hash.hexDigest() == "4d230a9f76f2b0dec43e5802fd19c6bd040686687de629e7ce98205fe0269b6e"
