@@ -15,7 +15,7 @@ type
   Sha256Context* = object
     state*: array[8, uint32]
     buffer: array[blockSize, uint8]
-    bufferLen: int  # NOTE: tracks the number of bytes currently in the buffer
+    bufferIdx: int  # NOTE: tracks the number of bytes currently in the buffer
     totalLen: int64 # NOTE: total length of the message
 
 const initState: array[8, uint32] = [
@@ -51,15 +51,15 @@ proc schedule(i: int): uint32 {.inline.} =
 proc padBuffer(ctx: var Sha256Context) =
   ## pad data in the buffer
   # NOTE pad with zeros until the last 64 bits
-  while ctx.bufferLen < blockSize - 8:  # -8 for the 64-bit length at the end
-    ctx.buffer[ctx.bufferLen] = 0'u8
-    inc ctx.bufferLen
+  while ctx.bufferIdx < blockSize - 8:  # -8 for the 64-bit length at the end
+    ctx.buffer[ctx.bufferIdx] = 0'u8
+    inc ctx.bufferIdx
   
   # NOTE: add the original message length as a 64-bit big-endian integer
   let msgBitLength = uint64(ctx.totalLen * 8)
   for i in countdown(7, 0):
-    ctx.buffer[ctx.bufferLen] = uint8((msgBitLength shr (i * 8)) and 0xff'u64)
-    inc ctx.bufferLen
+    ctx.buffer[ctx.bufferIdx] = uint8((msgBitLength shr (i * 8)) and 0xff'u64)
+    inc ctx.bufferIdx
     
 
 proc compress(ctx: var Sha256Context) =
@@ -106,7 +106,7 @@ proc compress(ctx: var Sha256Context) =
   ctx.state[6] += g
   ctx.state[7] += h
 
-  ctx.bufferLen = 0
+  ctx.bufferIdx = 0
 
 
 proc copyShaCtx*(toThisCtx: var Sha256Context, fromThisCtx: Sha256Context) =
@@ -114,30 +114,34 @@ proc copyShaCtx*(toThisCtx: var Sha256Context, fromThisCtx: Sha256Context) =
     toThisCtx.state[idx] = b
   for idx, b in fromThisCtx.buffer:
     toThisCtx.buffer[idx] = b
-  toThisCtx.bufferLen = fromThisCtx.bufferLen
+  toThisCtx.bufferIdx = fromThisCtx.bufferIdx
   toThisCtx.totalLen = fromThisCtx.totalLen
 
 
 proc update*[T](ctx: var Sha256Context, msg: openarray[T]) =
-  ## move message into buffer and process as it fills.
+  ## move message into buffer and compress as it fills.
   ctx.totalLen.inc(msg.len)
-  for i in 0 ..< msg.len:
-    ctx.buffer[ctx.bufferLen] = uint8(msg[i])
-    inc ctx.bufferLen
-    if ctx.bufferLen == blockSize:
+  for b in msg:
+    ctx.buffer[ctx.bufferIdx] = uint8(b)
+    inc ctx.bufferIdx
+    if ctx.bufferIdx == blockSize:
       ctx.compress()
 
 
 proc finalize*(ctx: var Sha256Context) =
   # NOTE: append the bit '1' to the buffer guaranteeing at least 1 byte free
-  ctx.buffer[ctx.bufferLen] = 0x80'u8
-  inc ctx.bufferLen
-  
-  # NOTE: compress data in the buffer if it contains more than blockSize - 8 bytes.
+  ctx.buffer[ctx.bufferIdx] = 0x80'u8
+  inc ctx.bufferIdx
+
+  # NOTE: if buffer contains more than blockSize - ctx.bufferIdx bytes ->
+  # pad remaining space with zeros and compress
   # this ensures there is room for the length field
-  if ctx.bufferLen >= blockSize - 8:
+  let spaceLeft = blockSize - ctx.bufferIdx
+  if spaceLeft < wordSize * 2:
+    for i in 0 ..< spaceLeft:
+      ctx.buffer[ctx.bufferIdx + i] = 0x00'u8
     ctx.compress()
-  
+
   # NOTE: pad the remaining data in the buffer
   ctx.padBuffer()
   # NOTE: process the final block
