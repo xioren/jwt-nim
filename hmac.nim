@@ -1,6 +1,6 @@
 import sequtils
 
-import sha_2/[sha256, sha512]
+import sha256, sha512
 
 
 type
