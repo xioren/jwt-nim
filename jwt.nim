@@ -25,7 +25,7 @@ proc splitToken(token: string): tuple[header, payload, signature: string] {.inli
     result.signature = parts[2]
 
 
-proc sign(payload, secret: string): string =
+proc sign*(payload, secret: string): string =
   ## currently implemented hash types SHA256, SHA512
   let header = %* {
     "alg": "HS256",
@@ -44,7 +44,7 @@ proc sign(payload, secret: string): string =
   return fmt"{encodedHeader}.{encodedPayload}.{base64Encode(signature.digest())}"
 
 
-proc sign(payload: JsonNode, secret: string): string =
+proc sign*(payload: JsonNode, secret: string): string =
   ## currently implemented hash types SHA256, SHA512
   let header = %* {
     "alg": "HS256",
@@ -63,7 +63,7 @@ proc sign(payload: JsonNode, secret: string): string =
   return fmt"{encodedHeader}.{encodedPayload}.{base64Encode(signature.digest())}"
 
 
-proc verify(token, secret: string): bool =
+proc verify*(token, secret: string): bool =
   let (header, payload, signature) = token.splitToken()
   let (_, _, expectedSignature) = sign(base64Decode(payload), secret).splitToken()
 
