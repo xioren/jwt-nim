@@ -1,4 +1,4 @@
-import std/[base64, json, strutils, strformat, tables]
+import std/[base64, json, strutils, strformat]
 
 import hmac, secrets
 
