@@ -5,7 +5,7 @@ import std/[base64, math, strutils, sysrand]
 
 const defaultEntropy = 32
 
-proc tokenBytes*(nBytes: Positive = 0): seq[byte]
+proc tokenBytes*(nBytes: Natural = 0): seq[byte]
 
 
 proc getRandBits(k: Positive): uint64 =
@@ -38,14 +38,14 @@ proc randbelow(exclusiveUpperBound: Positive): Natural =
     return result
 
 
-proc tokenBytes*(nBytes: Positive = 0): seq[byte] =
+proc tokenBytes*(nBytes: Natural = 0): seq[byte] =
   ## Return a random byte string containing *nBytes* bytes
   if nBytes <= 0:
     return urandom(defaultEntropy)
   return urandom(nBytes)
 
 
-proc tokenHex*(nBytes: Positive = 0): string =
+proc tokenHex*(nBytes: Natural = 0): string =
   ## Return a random text string, in hexadecimal
   result = newStringOfCap(nBytes + nBytes)
   let tb = tokenBytes(nBytes)
@@ -54,7 +54,7 @@ proc tokenHex*(nBytes: Positive = 0): string =
   return result
 
 
-proc tokenUrlSafe*(nBytes: Positive = 0): string =
+proc tokenUrlSafe*(nBytes: Natural = 0): string =
     ## Return a random URL-safe text string, in Base64 encoding
     let tok = tokenBytes(nBytes)
     return encode(tok, safe=true).strip(chars={'='}, leading=false)
